@@ -7,6 +7,7 @@ import binascii
 from tqdm import tqdm
 import os
 import json
+import argparse
 
 
 def extract(payload):
@@ -18,8 +19,29 @@ def extract(payload):
     return dic
 
 
+parser = argparse.ArgumentParser(description="Extract RawData from PCAPs for CipherSpectrum/ISCXVPN/ISCXTor")
+parser.add_argument("--dataset", type=str, default="all",
+                    choices=["CipherSpectrum", "ISCXVPN", "ISCXTor", "all"],
+                    help="which dataset to extract (default: all as defined in dataset_config.json)")
+parser.add_argument("--cipher_root", type=str, default=None,
+                    help="override root path for CipherSpectrum (dataset 0)")
+parser.add_argument("--vpn_root", type=str, default=None,
+                    help="override root path for ISCXVPN (dataset 1)")
+parser.add_argument("--tor_root", type=str, default=None,
+                    help="override root path for ISCXTor (dataset 2)")
+
+args = parser.parse_args()
+
 with open("dataset_config.json", "r", encoding="utf-8") as f:
     dataset_config = json.load(f)
+
+# 根据命令行参数可选地覆盖三个数据集的 root
+if args.cipher_root is not None and "0" in dataset_config:
+    dataset_config["0"]["root"] = args.cipher_root
+if args.vpn_root is not None and "1" in dataset_config:
+    dataset_config["1"]["root"] = args.vpn_root
+if args.tor_root is not None and "2" in dataset_config:
+    dataset_config["2"]["root"] = args.tor_root
 
 
 for ds_id, ds_info in dataset_config.items():
@@ -28,6 +50,10 @@ for ds_id, ds_info in dataset_config.items():
         continue
     root = ds_info["root"]
     dataset_name = ds_info["name"]
+
+    # 如果指定了单个数据集，只处理对应名称的那一个
+    if args.dataset != "all" and dataset_name != args.dataset:
+        continue
     dataset_prefix = f"{ds_id}_{dataset_name}"
 
     pcap_files = glob.glob(os.path.join(root, "*", "*.pcap")) + glob.glob(os.path.join(root, "*", "*.cap"))

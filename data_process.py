@@ -6,10 +6,22 @@ from collections import defaultdict
 from numpy import fft
 import scipy.stats as st
 import random
+import argparse
 
 SEED = 2023
 np.random.seed(SEED)
 random.seed(SEED)
+
+
+parser = argparse.ArgumentParser(description="Generate features (ShortTerm, etc.) from RawData")
+parser.add_argument("--methods", type=str, nargs="+", default=["ShortTerm"],
+                    help="methods to generate features for (currently only ShortTerm is implemented)")
+parser.add_argument("--datasets", type=str, nargs="+", default=["all"],
+                    help="which datasets to process: CipherSpectrum, ISCXVPN, ISCXTor, or all")
+args = parser.parse_args()
+
+methods = set(args.methods)
+datasets_opt = set(args.datasets)
 
 
 def cut(obj):
@@ -221,60 +233,44 @@ def ShortTerm(time_sequence, length_sequence, ttl_sequence, ip_flag_sequence, tc
     np.save(basename + ".npy", result)
 
 
-for noise in [0.0, "0.5_SIM", "0.5_TLS", "0.75_SIM", "0.75_TLS"]:
-    if noise == 0.0:
-        filenames = glob.glob(f"RawData/0_CipherSpectrum/*/*.npy")
-    else:
-        filenames = glob.glob(f"RawData_{noise}/0_CipherSpectrum/*/*.npy")
-    filenames = [filename[:-6] for filename in filenames]
-    filenames = sorted(set(filenames))
-
-    for filename in tqdm(filenames):
-        basename = "/" + filename.split("/")[-1]
+if "ShortTerm" not in methods:
+    # 当前实现仅支持 ShortTerm，其它方法暂不生成
+    print("No supported methods specified; only ShortTerm is implemented.")
+else:
+    for noise in [0.0, "0.5_SIM", "0.5_TLS", "0.75_SIM", "0.75_TLS"]:
         if noise == 0.0:
-            new_dir = f"data_{noise}" + "/".join(filename.split(f"RawData")[-1].split("/")[:-1]) + "/"
+            # 处理 RawData 下所有形如 X_YYYY/*/*.npy 的数据集（0_CipherSpectrum、1_ISCXVPN、2_ISCXTor 等）
+            filenames = glob.glob(f"RawData/*_*/*/*.npy")
         else:
-            new_dir = f"data_{noise}" + "/".join(filename.split(f"RawData_{noise}")[-1].split("/")[:-1]) + "/"
-        if not os.path.isdir(new_dir):
-            os.makedirs(new_dir)
-        time_sequence = np.load(filename + "_T.npy")
-        length_sequence = np.load(filename + "_L.npy")
-        ttl_sequence = np.load(filename + "_O.npy")
-        packet_raw_string_sequence = np.load(filename + "_P.npy")
-        ip_flag_sequence = np.load(filename + "_F.npy")
-        tcp_flag_sequence = np.load(filename + "_C.npy")
+            filenames = glob.glob(f"RawData_{noise}/*_*/*/*.npy")
+        filenames = [filename[:-6] for filename in filenames]
+        filenames = sorted(set(filenames))
 
-        packet_data_int_sequence = np.asarray([int_generation(packet_raw_string)
-                                               for packet_raw_string in packet_raw_string_sequence])
+        for filename in tqdm(filenames):
+            # RawData/<ds_id>_<name>/<cls>/xxx -> 提取数据集名称
+            ds_prefix = filename.split("/")[1]
+            ds_name = ds_prefix.split("_", 1)[1] if "_" in ds_prefix else ds_prefix
+            if "all" not in datasets_opt and ds_name not in datasets_opt:
+                continue
 
-        if not os.path.exists(new_dir + "ShortTerm"):
-            os.mkdir(new_dir + "ShortTerm")
-        ShortTerm(time_sequence, length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, new_dir + "ShortTerm" + basename)
+            basename = "/" + filename.split("/")[-1]
+            if noise == 0.0:
+                new_dir = f"data_{noise}" + "/".join(filename.split(f"RawData")[-1].split("/")[:-1]) + "/"
+            else:
+                new_dir = f"data_{noise}" + "/".join(filename.split(f"RawData_{noise}")[-1].split("/")[:-1]) + "/"
+            if not os.path.isdir(new_dir):
+                os.makedirs(new_dir)
 
-        if not os.path.exists(new_dir + "ETBert"):
-            os.mkdir(new_dir + "ETBert")
-        ETBert(packet_raw_string_sequence, new_dir + "ETBert" + basename)
+            time_sequence = np.load(filename + "_T.npy")
+            length_sequence = np.load(filename + "_L.npy")
+            ttl_sequence = np.load(filename + "_O.npy")
+            packet_raw_string_sequence = np.load(filename + "_P.npy")
+            ip_flag_sequence = np.load(filename + "_F.npy")
+            tcp_flag_sequence = np.load(filename + "_C.npy")
 
-        if not os.path.exists(new_dir + "Flowlens"):
-            os.mkdir(new_dir + "Flowlens")
-        FlowLens(length_sequence, new_dir + "Flowlens" + basename)
+            packet_data_int_sequence = np.asarray([int_generation(packet_raw_string)
+                                                   for packet_raw_string in packet_raw_string_sequence])
 
-        if not os.path.exists(new_dir + "Fs-net"):
-            os.mkdir(new_dir + "Fs-net")
-        FSNet(length_sequence, new_dir + "Fs-net" + basename)
-
-        if not os.path.exists(new_dir + "AttnLSTM"):
-            os.mkdir(new_dir + "AttnLSTM")
-        AttnLSTM(packet_data_int_sequence, new_dir + "AttnLSTM" + basename)
-
-        if not os.path.exists(new_dir + "Whisper"):
-            os.mkdir(new_dir + "Whisper")
-        Whisper(length_sequence, new_dir + "Whisper" + basename)
-
-        if not os.path.exists(new_dir + "Characterize"):
-            os.mkdir(new_dir + "Characterize")
-        Characterize(time_sequence, new_dir + "Characterize" + basename)
-
-        if not os.path.exists(new_dir + "Robust"):
-            os.mkdir(new_dir + "Robust")
-        Robust(length_sequence, new_dir + "Robust" + basename)
+            if not os.path.exists(new_dir + "ShortTerm"):
+                os.mkdir(new_dir + "ShortTerm")
+            ShortTerm(time_sequence, length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, new_dir + "ShortTerm" + basename)

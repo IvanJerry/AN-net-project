@@ -49,7 +49,7 @@ parser.add_argument('--data_size', default=1.0, type=float, help='data size')
 args = parser.parse_args()
 print(args)
 filenames = glob.glob(f"data_{args.noise}/0_CipherSpectrum/*/{args.method}/*.*") \
-            + glob.glob(f"data_{args.noise}/1_ISCXVPN/{args.method}/*.*") \
+            + glob.glob(f"data_{args.noise}/1_ISCXVPN/*/{args.method}/*.*") \
             + glob.glob(f"data_{args.noise}/2_ISCXTor/*/{args.method}/*.*")
 filenames = [filename for filename in filenames if filename.split("/")[1][0] == str(args.dataset)]
 
@@ -64,12 +64,15 @@ from collections import defaultdict
 rng_split = np.random.RandomState(SEED)
 file2cls = {}
 for filename in filenames:
-    if args.dataset == 5:
+    # 对于自定义的 0/1/2 三个数据集，类别来自目录名 data_xx/<dataset_prefix>/<cls>/<method>/<file>
+    if args.dataset in [0, 1, 2]:
+        cls = filename.split("/")[-3]
+    elif args.dataset == 5:
         cls = filename.split("/")[-4]
     else:
         cls = filename.split("/")[-1].split("_")[classifier_position]
-    if args.dataset == 3:
-        cls = cls.split("-")[0]
+        if args.dataset == 3:
+            cls = cls.split("-")[0]
     file2cls[filename] = cls
 
 cls2files = defaultdict(list)
@@ -82,19 +85,24 @@ for c, fs in cls2files.items():
     fs = sorted(fs)
     inds = np.arange(len(fs))
     rng_split.shuffle(inds)
-    split_point = int(len(fs) * train_ratio)
+    # 确保每个类别至少有 1 个样本进入训练集，避免训练集为空
+    if len(fs) == 1:
+        split_point = 1
+    else:
+        split_point = max(1, int(len(fs) * train_ratio))
     train_idx = inds[:split_point]
     test_idx = inds[split_point:]
     train_filenames.extend([fs[i] for i in train_idx])
     test_filenames.extend([fs[i] for i in test_idx])
 
-if args.dataset == 5:
+if args.dataset in [0, 1, 2]:
+    classifier = sorted(set([filename.split("/")[-3] for filename in filenames]))
+elif args.dataset == 5:
     classifier = sorted(set([filename.split("/")[-4] for filename in filenames]))
 else:
     classifier = sorted(set([filename.split("/")[-1].split("_")[classifier_position] for filename in filenames]))
-
-if args.dataset == 3:
-    classifier = sorted(set([c1.split("-")[0] for c1 in classifier]))
+    if args.dataset == 3:
+        classifier = sorted(set([c1.split("-")[0] for c1 in classifier]))
 
 
 class Logger(object):
@@ -123,12 +131,15 @@ def load_data(file_names, classify):
     X = []
     Y = []
     for filename in tqdm(file_names):
-        if args.dataset == 5:
+        if args.dataset in [0, 1, 2]:
+            # 自定义数据集：类别来自目录名 data_xx/<dataset_prefix>/<cls>/<method>/<file>
+            cls = filename.split("/")[-3]
+        elif args.dataset == 5:
             cls = filename.split("/")[-4]
         else:
             cls = filename.split("/")[-1].split("_")[classifier_position]
-        if args.dataset == 3:
-            cls = cls.split("-")[0]
+            if args.dataset == 3:
+                cls = cls.split("-")[0]
         cls_number = classify.index(cls)
         data_arr = np.load(filename)
         X.append(data_arr)
@@ -143,12 +154,14 @@ def load_data_csv(file_names, classify):
     X = []
     Y = []
     for filename in tqdm(file_names):
-        if args.dataset == 5:
+        if args.dataset in [0, 1, 2]:
+            cls = filename.split("/")[-3]
+        elif args.dataset == 5:
             cls = filename.split("/")[-4]
         else:
             cls = filename.split("/")[-1].split("_")[classifier_position]
-        if args.dataset == 3:
-            cls = cls.split("-")[0]
+            if args.dataset == 3:
+                cls = cls.split("-")[0]
         cls_number = classify.index(cls)
         with open(filename, encoding='utf-8') as f:
             data_arr = np.loadtxt(f, str, delimiter=",")
@@ -304,11 +317,13 @@ elif args.method in ["ShortTerm", "AttnLSTM", "Fs-net", "ETBert"]:
         ]
         optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5, correct_bias=False)
     else:
+        # 对非 ETBert 方法使用 SGD，并为 ShortTerm 调整更小的学习率和略大的 weight decay
+        base_lr = 3e-4
         optimizer = torch.optim.SGD(
             model.parameters(),
-            0.001,
+            base_lr,
             momentum=0.9,
-            weight_decay=0.0003
+            weight_decay=5e-4
         )
 
     if args.method == "ETBert":
@@ -330,10 +345,18 @@ elif args.method in ["ShortTerm", "AttnLSTM", "Fs-net", "ETBert"]:
     test_f1_list = []
     if args.method == "ETBert":
         max_epoch = 4
-    elif args.dataset == 2 and args.method != "ShortTerm":
+    elif args.method == "ShortTerm":
+        max_epoch = 100
+    elif args.dataset == 2:
         max_epoch = 100
     else:
         max_epoch = 50
+
+    # 为非 ETBert 模型添加一个简单的 StepLR 学习率调度器
+    if args.method != "ETBert":
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+    else:
+        scheduler = None
     for epoch in range(max_epoch):
         model.train()
         train_loss = 0
@@ -379,6 +402,10 @@ elif args.method in ["ShortTerm", "AttnLSTM", "Fs-net", "ETBert"]:
 
         train_loss /= 1000
         train_loss_list.append(train_loss)
+
+        # 每个 epoch 结束后更新学习率（仅针对非 ETBert）
+        if scheduler is not None:
+            scheduler.step()
 
         if args.method == "ETBert":
             test_model = model
