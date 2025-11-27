@@ -2,14 +2,7 @@ import subprocess
 import sys
 
 METHODS = [
-    "Whisper",
-    "Characterize",
-    "Robust",
-    "Flowlens",
     "ShortTerm",
-    "AttnLSTM",
-    "Fs-net",
-    "ETBert",
 ]
 
 DATASETS = [0, 1, 2]
