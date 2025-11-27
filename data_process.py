@@ -202,33 +202,30 @@ def ETBert(packet_raw_string_sequence, basename):
     f.close()
 
 
-def ShortTerm(time_sequence, length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, basename):
-    instance_num = len(length_sequence) // 100
-    length_sequence = length_sequence[: instance_num * 100]
-    length_sequence = length_sequence.reshape(-1, 100, 1)
+def ShortTerm(time_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, basename):
+    # 以 ip_total_length_sequence 为基准对齐所有序列，每 100 个包形成一个样本
+    instance_num = len(ip_total_length_sequence) // 100
+    ip_total_length_sequence = ip_total_length_sequence[: instance_num * 100]
+    ip_total_length_sequence = ip_total_length_sequence.reshape(-1, 100, 1)
 
     time_delta = time_sequence
     time_delta = time_delta[: instance_num * 100]
     time_delta = time_delta.reshape(-1, 100, 1)
 
-    instance_num = len(ttl_sequence) // 100
     ttl_sequence = ttl_sequence[: instance_num * 100]
     ttl_sequence = ttl_sequence.reshape(-1, 100, 1)
 
-    instance_num = len(ip_flag_sequence) // 100
     ip_flag_sequence = ip_flag_sequence[: instance_num * 100]
     ip_flag_sequence = ip_flag_sequence.reshape(-1, 100, 1)
 
-    instance_num = len(tcp_flag_sequence) // 100
     tcp_flag_sequence = tcp_flag_sequence[: instance_num * 100]
     tcp_flag_sequence = tcp_flag_sequence.reshape(-1, 100, 1)
 
-    instance_num = len(packet_data_int_sequence) // 100
     packet_data_int_sequence = packet_data_int_sequence[: instance_num * 100]
     packet_data_int_sequence = packet_data_int_sequence.reshape(-1, 100, 64)
 
     result = np.concatenate(
-        [length_sequence, time_delta, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence], axis=-1)
+        [time_delta, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence], axis=-1)
 
     np.save(basename + ".npy", result)
 
@@ -262,7 +259,7 @@ else:
                 os.makedirs(new_dir)
 
             time_sequence = np.load(filename + "_T.npy")
-            length_sequence = np.load(filename + "_L.npy")
+            ip_total_length_sequence = np.load(filename + "_I.npy")
             ttl_sequence = np.load(filename + "_O.npy")
             packet_raw_string_sequence = np.load(filename + "_P.npy")
             ip_flag_sequence = np.load(filename + "_F.npy")
@@ -273,4 +270,4 @@ else:
 
             if not os.path.exists(new_dir + "ShortTerm"):
                 os.mkdir(new_dir + "ShortTerm")
-            ShortTerm(time_sequence, length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, new_dir + "ShortTerm" + basename)
+            ShortTerm(time_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, new_dir + "ShortTerm" + basename)

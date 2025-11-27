@@ -238,10 +238,11 @@ class FinalModel(nn.Module):
         super(FinalModel, self).__init__()
         self.Payload_Model = Payload_Extractor(num_layers, with_relu, with_ht, num_class, temp)
 
-        self.Length_Model = StatisticModel(num_layers, with_relu, with_ht, num_class, temp)
-        self.Length_Model_2 = SingleModel(num_layers, with_relu, with_ht, num_class, temp)
-
+        # IAT 分支
         self.IAT_Model = StatisticModel(num_layers, with_relu, with_ht, num_class, temp)
+
+        # IP Total Length 统计特征分支
+        self.IPTotal_Model = StatisticModel(num_layers, with_relu, with_ht, num_class, temp)
 
         self.TTL_Model = StatisticModel(num_layers, with_relu, with_ht, num_class, temp)
         self.TTL_Model_2 = SingleModel(num_layers, with_relu, with_ht, num_class, temp)
@@ -257,51 +258,51 @@ class FinalModel(nn.Module):
         self.dataset = dataset
 
     def split(self, x):
+        # ShortTerm 新通道顺序：
+        # [0] IAT, [1] IP Total Length, [2] TTL, [3] IPFlag, [4] TCPFlag, [5:] Payload(64 维)
         x_Payload = x[:, :, 5:]
         x = x[:, :, :5]
-        x_Length = x[:, :, 0]
-        x_IAT = x[:, :, 1]
+        x_IAT = x[:, :, 0]
+        x_IPTotal = x[:, :, 1]
         x_TTL = x[:, :, 2]
         x_IPFlag = x[:, :, 3]
         x_TCPFlag = x[:, :, 4]
 
-        return x_Payload, x_Length, x_IAT, x_TTL, x_IPFlag, x_TCPFlag
+        return x_Payload, x_IAT, x_IPTotal, x_TTL, x_IPFlag, x_TCPFlag
 
     def forward(self, x):
-        x_Payload, x_Length, x_IAT, x_TTL, x_IPFlag, x_TCPFlag = self.split(x)
+        x_Payload, x_IAT, x_IPTotal, x_TTL, x_IPFlag, x_TCPFlag = self.split(x)
         if self.dataset == 0:
-            Length_feature, _ = self.Length_Model(x_Length)
             IAT_feature, _ = self.IAT_Model(x_IAT)
+            IPTotal_feature, _ = self.IPTotal_Model(x_IPTotal)
             TTL_feature, _ = self.TTL_Model(x_TTL)
             TCP_feature, _ = self.TCPFlag_Model(x_TCPFlag)
-            result = [Length_feature, IAT_feature, TTL_feature, TCP_feature]
+            result = [IAT_feature, IPTotal_feature, TTL_feature, TCP_feature]
         if self.dataset == 1:
             Payload_feature, _ = self.Payload_Model(x_Payload)
-            Length_feature, _ = self.Length_Model_2(x_Length)
             IAT_feature, _ = self.IAT_Model(x_IAT)
             TTL_feature, _ = self.TTL_Model_2(x_TTL)
-            result = [Payload_feature, Length_feature, IAT_feature, TTL_feature]
+            IPTotal_feature, _ = self.IPTotal_Model(x_IPTotal)
+            result = [Payload_feature, IAT_feature, IPTotal_feature, TTL_feature]
         if self.dataset == 2:
             Payload_feature, _ = self.Payload_Model(x_Payload)
-            Length_feature, _ = self.Length_Model_2(x_Length)
             IAT_feature, _ = self.IAT_Model(x_IAT)
+            IPTotal_feature, _ = self.IPTotal_Model(x_IPTotal)
             IP_feature, _ = self.IPFlag_Model_2(x_IPFlag)
             TCP_feature, _ = self.TCPFlag_Model_2(x_TCPFlag)
-            result = [Payload_feature, Length_feature, IAT_feature, IP_feature]
+            result = [Payload_feature, IAT_feature, IPTotal_feature, IP_feature, TCP_feature]
         if self.dataset == 3:
             Payload_feature, _ = self.Payload_Model(x_Payload)
-            Length_feature, _ = self.Length_Model_2(x_Length)
             IAT_feature, _ = self.IAT_Model(x_IAT)
             IP_feature, _ = self.IPFlag_Model_2(x_IPFlag)
             TCP_feature, _ = self.TCPFlag_Model_2(x_TCPFlag)
-            result = [Payload_feature, Length_feature, IAT_feature, IP_feature]
+            result = [Payload_feature, IAT_feature, IP_feature, TCP_feature]
         if self.dataset == 5:
             Payload_feature, _ = self.Payload_Model(x_Payload)
-            Length_feature, _ = self.Length_Model_2(x_Length)
             IAT_feature, _ = self.IAT_Model(x_IAT)
             IP_feature, _ = self.IPFlag_Model_2(x_IPFlag)
             TCP_feature, _ = self.TCPFlag_Model_2(x_TCPFlag)
-            result = [Payload_feature, Length_feature, IAT_feature, IP_feature]
+            result = [Payload_feature, IAT_feature, IP_feature, TCP_feature]
 
         if self.with_re:
             x = RE(result, self.training)

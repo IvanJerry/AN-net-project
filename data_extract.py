@@ -71,6 +71,7 @@ for ds_id, ds_info in dataset_config.items():
             ttl_sequence = []
             ip_flag_sequence = []
             tcp_flag_sequence = []
+            ip_total_length_sequence = []
             packet_raw_string_sequence = []
             while True:
                 try:
@@ -83,6 +84,7 @@ for ds_id, ds_info in dataset_config.items():
                         else:
                             length = len(result["TCP"].payload)
                         ttl = result["IP"].ttl
+                        ip_total_len = result["IP"].len
                         data = (binascii.hexlify(bytes(result["TCP"])))
                         packet_string = data.decode()[24:24 + 128 * 2 + 2]
                         ip_flag = result["IP"].flags.value
@@ -94,6 +96,7 @@ for ds_id, ds_info in dataset_config.items():
                         ttl_sequence.append(ttl)
                         ip_flag_sequence.append(ip_flag)
                         tcp_flag_sequence.append(tcp_flag)
+                        ip_total_length_sequence.append(ip_total_len)
                 except EOFError:
                     break
         if len(time_sequence) > 0:
@@ -107,6 +110,7 @@ for ds_id, ds_info in dataset_config.items():
             ttl_sequence = np.array(ttl_sequence)
             ip_flag_sequence = np.array(ip_flag_sequence)
             tcp_flag_sequence = np.array(tcp_flag_sequence)
+            ip_total_length_sequence = np.array(ip_total_length_sequence)
 
             np.save(os.path.join(new_dir, basename + "_L.npy"), length_sequence)
             np.save(os.path.join(new_dir, basename + "_T.npy"), time_sequence)
@@ -114,3 +118,4 @@ for ds_id, ds_info in dataset_config.items():
             np.save(os.path.join(new_dir, basename + "_O.npy"), ttl_sequence)
             np.save(os.path.join(new_dir, basename + "_F.npy"), ip_flag_sequence)
             np.save(os.path.join(new_dir, basename + "_C.npy"), tcp_flag_sequence)
+            np.save(os.path.join(new_dir, basename + "_I.npy"), ip_total_length_sequence)
