@@ -18,7 +18,3 @@
 - 实现： Client $\to$ Server 记为 1，Server $\to$ Client 记为 -1。
 - 理论依据： TrafficFormer 强调流量数据的方向和顺序至关重要，因为它们定义了协议的交互逻辑。
 - 预期： 这是一个强特征，预计在所有数据集上都能带来准确率提升。
-Version,Description,Dataset 0 (CipherSpectrum),Dataset 1 (ISCXVPN),Dataset 2 (ISCXTor),结论/备注
-v1.0,"Baseline (IAT, TTL + RawBytes)",待填,待填,待填,基准分数
-v1.1,v1.0 + IP Total Length,待填,待填,待填,验证 LiM 的长度特征有效性
-v1.2,v1.0 + Direction,待填,待填,待填,验证 TrafficFormer 的方向逻辑
