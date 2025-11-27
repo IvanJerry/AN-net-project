@@ -73,6 +73,10 @@ for ds_id, ds_info in dataset_config.items():
             tcp_flag_sequence = []
             ip_total_length_sequence = []
             packet_raw_string_sequence = []
+            # 方向指示符：client->server 记为 1，server->client 记为 -1，无法确定为 0
+            direction_sequence = []
+            client_ip, client_port = None, None
+            server_ip, server_port = None, None
             while True:
                 try:
                     packet = fdesc.read_packet()
@@ -90,6 +94,27 @@ for ds_id, ds_info in dataset_config.items():
                         ip_flag = result["IP"].flags.value
                         tcp_flag = result["TCP"].flags.value
 
+                        # 基于首个 TCP 包推断 client/server：假定端口较大的一端为 client
+                        src_ip = result["IP"].src
+                        dst_ip = result["IP"].dst
+                        src_port = int(result["TCP"].sport)
+                        dst_port = int(result["TCP"].dport)
+                        if client_ip is None:
+                            if src_port != dst_port:
+                                if src_port > dst_port:
+                                    client_ip, client_port = src_ip, src_port
+                                    server_ip, server_port = dst_ip, dst_port
+                                else:
+                                    client_ip, client_port = dst_ip, dst_port
+                                    server_ip, server_port = src_ip, src_port
+                        # 根据当前包方向打标签
+                        direction = 0
+                        if client_ip is not None:
+                            if src_ip == client_ip and src_port == client_port and dst_ip == server_ip and dst_port == server_port:
+                                direction = 1
+                            elif src_ip == server_ip and src_port == server_port and dst_ip == client_ip and dst_port == client_port:
+                                direction = -1
+
                         time_sequence.append(time)
                         length_sequence.append(length)
                         packet_raw_string_sequence.append(packet_string)
@@ -97,6 +122,7 @@ for ds_id, ds_info in dataset_config.items():
                         ip_flag_sequence.append(ip_flag)
                         tcp_flag_sequence.append(tcp_flag)
                         ip_total_length_sequence.append(ip_total_len)
+                        direction_sequence.append(direction)
                 except EOFError:
                     break
         if len(time_sequence) > 0:
@@ -111,6 +137,7 @@ for ds_id, ds_info in dataset_config.items():
             ip_flag_sequence = np.array(ip_flag_sequence)
             tcp_flag_sequence = np.array(tcp_flag_sequence)
             ip_total_length_sequence = np.array(ip_total_length_sequence)
+            direction_sequence = np.array(direction_sequence)
 
             np.save(os.path.join(new_dir, basename + "_L.npy"), length_sequence)
             np.save(os.path.join(new_dir, basename + "_T.npy"), time_sequence)
@@ -119,3 +146,4 @@ for ds_id, ds_info in dataset_config.items():
             np.save(os.path.join(new_dir, basename + "_F.npy"), ip_flag_sequence)
             np.save(os.path.join(new_dir, basename + "_C.npy"), tcp_flag_sequence)
             np.save(os.path.join(new_dir, basename + "_I.npy"), ip_total_length_sequence)
+            np.save(os.path.join(new_dir, basename + "_D.npy"), direction_sequence)

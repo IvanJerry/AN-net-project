@@ -202,7 +202,7 @@ def ETBert(packet_raw_string_sequence, basename):
     f.close()
 
 
-def ShortTerm(time_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, basename):
+def ShortTerm(time_sequence, direction_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, basename):
     # 以 ip_total_length_sequence 为基准对齐所有序列，每 100 个包形成一个样本
     instance_num = len(ip_total_length_sequence) // 100
     ip_total_length_sequence = ip_total_length_sequence[: instance_num * 100]
@@ -211,6 +211,9 @@ def ShortTerm(time_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_seq
     time_delta = time_sequence
     time_delta = time_delta[: instance_num * 100]
     time_delta = time_delta.reshape(-1, 100, 1)
+
+    direction_sequence = direction_sequence[: instance_num * 100]
+    direction_sequence = direction_sequence.reshape(-1, 100, 1)
 
     ttl_sequence = ttl_sequence[: instance_num * 100]
     ttl_sequence = ttl_sequence.reshape(-1, 100, 1)
@@ -224,8 +227,9 @@ def ShortTerm(time_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_seq
     packet_data_int_sequence = packet_data_int_sequence[: instance_num * 100]
     packet_data_int_sequence = packet_data_int_sequence.reshape(-1, 100, 64)
 
+    # 通道顺序：[0] IAT, [1] Direction, [2] IP Total Length, [3] TTL, [4] IPFlag, [5] TCPFlag, [6:] Payload
     result = np.concatenate(
-        [time_delta, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence], axis=-1)
+        [time_delta, direction_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence], axis=-1)
 
     np.save(basename + ".npy", result)
 
@@ -264,10 +268,11 @@ else:
             packet_raw_string_sequence = np.load(filename + "_P.npy")
             ip_flag_sequence = np.load(filename + "_F.npy")
             tcp_flag_sequence = np.load(filename + "_C.npy")
+            direction_sequence = np.load(filename + "_D.npy")
 
             packet_data_int_sequence = np.asarray([int_generation(packet_raw_string)
                                                    for packet_raw_string in packet_raw_string_sequence])
 
             if not os.path.exists(new_dir + "ShortTerm"):
                 os.mkdir(new_dir + "ShortTerm")
-            ShortTerm(time_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, new_dir + "ShortTerm" + basename)
+            ShortTerm(time_sequence, direction_sequence, ip_total_length_sequence, ttl_sequence, ip_flag_sequence, tcp_flag_sequence, packet_data_int_sequence, new_dir + "ShortTerm" + basename)
