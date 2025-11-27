@@ -2,12 +2,12 @@
 对AN-Net特征处理和特征融合的优化
 # 第一阶段：基线建立与单特征验证 (Version 1.x)
 在此阶段，保持原始字节输入（Raw Bytes Input）不变（即包含TCP头部和部分负载的原始字节），仅改变统计特征（Statistical Features）的输入向量。
-[1] Length：包长序列：这里的 length 是 ` len(result["TCP"].payload)`
-[2] IAT：到达时间间隔（Inter-Arrival Time）
-[3] TTL：IP 包的 Time-To-Live
-[4] IPFlag：IP 头标志位
-[5] TCPFlag：TCP 标志位
-[6] Payload：报文负载字节序列（做了嵌入/编码）:取的是整个TCP层的原始字节（TCP包头+负载），但是TCP头是从第12个字节/第24个Hex字符开始取的，前 12 字节大致对应：源端口(2B) + 目的端口(2B) + 序列号(4B) + 确认号(4B)，再截取大约 128 字节左右的内容（代码里给了 258 个 hex 字符）。
+- [1] Length：包长序列：这里的 length 是 ` len(result["TCP"].payload)`
+- [2] IAT：到达时间间隔（Inter-Arrival Time）
+- [3] TTL：IP 包的 Time-To-Live
+- [4] IPFlag：IP 头标志位
+- [5] TCPFlag：TCP 标志位
+- [6] Payload：报文负载字节序列（做了嵌入/编码）:取的是整个TCP层的原始字节（TCP包头+负载），但是TCP头是从第12个字节/第24个Hex字符开始取的，前 12 字节大致对应：源端口(2B) + 目的端口(2B) + 序列号(4B) + 确认号(4B)，再截取大约 128 字节左右的内容（代码里给了 258 个 hex 字符）。
 ## Version 1.1: 增加 IP 总长度 (Add IP Total Length)
 - 特征变更： 在 v1.0 基础上，统计特征向量增加一维 IP Total Length。
 - 提取方法： 直接从 IP 头部提取 Total Length 字段（包含 IP 头、TCP/UDP 头和 Payload 的总大小）。
