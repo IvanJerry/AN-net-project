@@ -1,0 +1,14 @@
+{
+  "0": {
+    "name": "CipherSpectrum",
+    "root": "/mnt1/lb/Datasets/CipherSpectrum"
+  },
+  "1": {
+    "name": "ISCXVPN",
+    "root": "/mnt1/zs/Dataset/VPN"
+  },
+  "2": {
+    "name": "ISCXTor",
+    "root": "/mnt1/zs/Dataset/Tor"
+  }
+}
