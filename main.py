@@ -317,13 +317,11 @@ elif args.method in ["ShortTerm", "AttnLSTM", "Fs-net", "ETBert"]:
         ]
         optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5, correct_bias=False)
     else:
-        # 对非 ETBert 方法使用 SGD，并为 ShortTerm 调整更小的学习率和略大的 weight decay
-        base_lr = 3e-4
         optimizer = torch.optim.SGD(
             model.parameters(),
-            base_lr,
+            0.001,
             momentum=0.9,
-            weight_decay=5e-4
+            weight_decay=0.0003
         )
 
     if args.method == "ETBert":
@@ -345,18 +343,10 @@ elif args.method in ["ShortTerm", "AttnLSTM", "Fs-net", "ETBert"]:
     test_f1_list = []
     if args.method == "ETBert":
         max_epoch = 4
-    elif args.method == "ShortTerm":
-        max_epoch = 100
-    elif args.dataset == 2:
+    elif args.dataset == 2 and args.method != "ShortTerm":
         max_epoch = 100
     else:
-        max_epoch = 50
-
-    # 为非 ETBert 模型添加一个简单的 StepLR 学习率调度器
-    if args.method != "ETBert":
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
-    else:
-        scheduler = None
+        max_epoch = 60
     for epoch in range(max_epoch):
         model.train()
         train_loss = 0
@@ -402,10 +392,6 @@ elif args.method in ["ShortTerm", "AttnLSTM", "Fs-net", "ETBert"]:
 
         train_loss /= 1000
         train_loss_list.append(train_loss)
-
-        # 每个 epoch 结束后更新学习率（仅针对非 ETBert）
-        if scheduler is not None:
-            scheduler.step()
 
         if args.method == "ETBert":
             test_model = model
