@@ -33,7 +33,8 @@ for ds_id, ds_info in dataset_config.items():
     pcap_files = glob.glob(os.path.join(root, "*", "*.pcap")) + glob.glob(os.path.join(root, "*", "*.cap"))
 
     for filename in tqdm(pcap_files, desc=f"Processing dataset {dataset_prefix}"):
-        basename = os.path.basename(filename).split(".")[0]
+        # 只去掉最后一个扩展名，保留中间的 .pcap.TCP_... 等部分
+        basename = os.path.basename(filename).rsplit(".", 1)[0]
         cls_name = os.path.basename(os.path.dirname(filename))
         new_dir = os.path.join("RawData", dataset_prefix, cls_name)
         if not os.path.isdir(new_dir):
