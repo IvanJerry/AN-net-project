@@ -64,6 +64,7 @@ V3.2 最终特征列表：
 Anonymized Protocol Header (保留)： 也就是代码中的 packet_data_int_sequence，保留了微观协议行为（如窗口大小），是 V2 的核心改进。
 移除： Payload Length, TTL, IP Flags。
 ## V4方案
+```plaintext
 [1] IAT 时域序列 (IAT Time-Sequence)
 [2] IAT 时频热力图 (IAT Spectrogram) —— [新增]
 [3] IP 总长度 (IP Total Length)： 含头部的总大小，抗干扰性强。
@@ -79,8 +80,10 @@ Anonymized Protocol Header (保留)： 也就是代码中的 packet_data_int_seq
   ├── [相对方向] ──────────> [Embedding 层] ─────────> {方向向量} ───────┼─> [特征增强 Drop/Scale] ─> [分类]
   ├── [TCP 标志位] ────────> [Embedding 层] ─────────> {标志位向量} ─────┤   (平均池化/拼接)
   └── [协议头序列] ────────> [Bi-GRU 编码器] ────────> {协议头向量} ─────┘
+```
 
   还有一种
+```plaintext
   输入 (Input)
   │
   ├── [A. 时序侧 (Time Side)] ──────────────────────────────┐
@@ -107,3 +110,4 @@ Anonymized Protocol Header (保留)： 也就是代码中的 packet_data_int_seq
   │                                       └───────────────────────────────┘
   │                                                         ↓
   └──────────────────────────────────────────────> [ AN-Net 特征增强 Drop/Scale ] ──> [分类]
+```
