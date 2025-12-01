@@ -43,9 +43,24 @@
 删减对象：
 - TTL (Time-To-Live)： TTL 与网络拓扑跳数强相关，容易让模型学习到“路径特征”而非“应用特征”（比如模型可能学会了区分内网和外网，而不是区分 YouTube 和 Netflix）。在通用流量分类中，这是一个严重的干扰项。
 - IPFlag & IPHeader (部分)： IP 头部的标志位（如 DF）通常是操作系统决定的，与应用层行为关系较弱。
-**V3.1 最终特征列表：**
+
+#### V3.1 最终特征列表：
 - Length (保留)： TCP 载荷长度，反映数据块大小。
 - IAT (保留)： 到达时间间隔，反映流的突发节奏。
 - TCPFlag (保留)： 握手与传输状态，反映交互阶段。
 - Payload (保留)： 原始字节序列（TCP层），这是深度学习模型捕捉微观模式的关键。
 - 移除： TTL, IPFlag。
+## V3.2 方案：基于 V2 的特征精简 (Feature Selection on V2)
+核心逻辑： V2 版本引入了更多工程化特征（如 Relative Direction 和 Protocol Header）。V3.2 的目标是**消除多重共线性（Multicollinearity）**并进一步净化输入。
+基准 (Base)： V2 特征集。
+删减对象：
+- Payload Length (有效载荷长度)： 在 V2 中，已经有了 IP Total Length。Payload Length = IP Total Length - Headers。两者高度线性相关（Correlation > 0.9），同时输入会造成信息冗余，浪费模型参数。保留更鲁棒的 IP Total Length 即可。
+- IP Flags： 理由同 V3.1，信息量极低。
+- TTL： 理由同 V3.1，存在环境过拟合风险。
+V3.2 最终特征列表：
+- IP Total Length (保留)： 包含头部的总长度，抗干扰性更强。
+- IAT (保留)： 核心时序特征。
+- Relative Direction (保留)： 交互逻辑的核心，定义了“请求-响应”模式。
+- TCP Flags (保留)： 标记流状态。
+Anonymized Protocol Header (保留)： 也就是代码中的 packet_data_int_sequence，保留了微观协议行为（如窗口大小），是 V2 的核心改进。
+移除： Payload Length, TTL, IP Flags。
