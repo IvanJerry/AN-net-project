@@ -43,24 +43,67 @@
 删减对象：
 - TTL (Time-To-Live)： TTL 与网络拓扑跳数强相关，容易让模型学习到“路径特征”而非“应用特征”（比如模型可能学会了区分内网和外网，而不是区分 YouTube 和 Netflix）。在通用流量分类中，这是一个严重的干扰项。
 - IPFlag & IPHeader (部分)： IP 头部的标志位（如 DF）通常是操作系统决定的，与应用层行为关系较弱。
-
 #### V3.1 最终特征列表：
-- Length (保留)： TCP 载荷长度，反映数据块大小。
-- IAT (保留)： 到达时间间隔，反映流的突发节奏。
-- TCPFlag (保留)： 握手与传输状态，反映交互阶段。
-- Payload (保留)： 原始字节序列（TCP层），这是深度学习模型捕捉微观模式的关键。
-- 移除： TTL, IPFlag。
+- [1]Length (保留)： TCP 载荷长度，反映数据块大小。
+- [2]IAT (保留)： 到达时间间隔，反映流的突发节奏。
+- [3]TCPFlag (保留)： 握手与传输状态，反映交互阶段。
+- [4]Payload (保留)： 原始字节序列（TCP层），这是深度学习模型捕捉微观模式的关键。
+- [5]移除： TTL, IPFlag。
 ## V3.2 方案：基于 V2 的特征精简 (Feature Selection on V2)
 核心逻辑： V2 版本引入了更多工程化特征（如 Relative Direction 和 Protocol Header）。V3.2 的目标是**消除多重共线性（Multicollinearity）**并进一步净化输入。
 基准 (Base)： V2 特征集。
 删减对象：
-- Payload Length (有效载荷长度)： 在 V2 中，已经有了 IP Total Length。Payload Length = IP Total Length - Headers。两者高度线性相关（Correlation > 0.9），同时输入会造成信息冗余，浪费模型参数。保留更鲁棒的 IP Total Length 即可。
-- IP Flags： 理由同 V3.1，信息量极低。
-- TTL： 理由同 V3.1，存在环境过拟合风险。
+- [1]Payload Length (有效载荷长度)： 在 V2 中，已经有了 IP Total Length。Payload Length = IP Total Length - Headers。两者高度线性相关（Correlation > 0.9），同时输入会造成信息冗余，浪费模型参数。保留更鲁棒的 IP Total Length 即可。
+- [2]IP Flags： 理由同 V3.1，信息量极低。
+- [3]TTL： 理由同 V3.1，存在环境过拟合风险。
 V3.2 最终特征列表：
-- IP Total Length (保留)： 包含头部的总长度，抗干扰性更强。
-- IAT (保留)： 核心时序特征。
-- Relative Direction (保留)： 交互逻辑的核心，定义了“请求-响应”模式。
-- TCP Flags (保留)： 标记流状态。
+- [1]IP Total Length (保留)： 包含头部的总长度，抗干扰性更强。
+- [2]IAT (保留)： 核心时序特征。
+- [3]Relative Direction (保留)： 交互逻辑的核心，定义了“请求-响应”模式。
+- [4]TCP Flags (保留)： 标记流状态。
 Anonymized Protocol Header (保留)： 也就是代码中的 packet_data_int_sequence，保留了微观协议行为（如窗口大小），是 V2 的核心改进。
 移除： Payload Length, TTL, IP Flags。
+## V4方案
+[1] IAT 时域序列 (IAT Time-Sequence)
+[2] IAT 时频热力图 (IAT Spectrogram) —— [新增]
+[3] IP 总长度 (IP Total Length)： 含头部的总大小，抗干扰性强。
+[4] 相对方向 (Relative Direction)： 定义请求/响应的交互逻辑。
+[5] TCP 标志位 (TCP Flags)： 标记握手、传输、断开等状态。
+[6] 匿名化协议头 (Anonymized Protocol Header)： 去除 Payload 后的头部字节序列，捕捉微观协议行为（如窗口大小）。
+输入 (Input)
+  ├── [IAT 序列] ───────────┐
+  │                         ↓ (CWT)
+  ├── [IAT 热力图] ──────> [Cross-Attention 模块] ──> {强健的 IAT 向量} ──┐
+  │                        (替代高温Softmax)                              │
+  ├── [IP 总长度] ─────────> [Bi-GRU 编码器] ────────> {长度向量} ───────┤
+  ├── [相对方向] ──────────> [Embedding 层] ─────────> {方向向量} ───────┼─> [特征增强 Drop/Scale] ─> [分类]
+  ├── [TCP 标志位] ────────> [Embedding 层] ─────────> {标志位向量} ─────┤   (平均池化/拼接)
+  └── [协议头序列] ────────> [Bi-GRU 编码器] ────────> {协议头向量} ─────┘
+
+  还有一种
+  输入 (Input)
+  │
+  ├── [A. 时序侧 (Time Side)] ──────────────────────────────┐
+  │    ├── [IAT 序列] (Query)                               │
+  │    │      ↓ (TrafficScope 技术)                         │
+  │    ├── [IAT 热力图] (Key/Value)                         │
+  │    │      ↓                                             │
+  │    └── [Cross-Attention 模块] ──> {强健 IAT 向量 H_t} ──┤
+  │                                                         │
+  ├── [B. 形状侧 (Shape Side)]                              │
+  │    ├── [IP 总长度] ──> [Bi-GRU] ──> {长度向量}          │
+  │    ├── [协议头序列] ──> [Bi-GRU] ──> {协议头向量}       │
+  │    └── (拼接) ──────────────────> {全局形状向量 H_s} ───┤
+  │                                                         │
+  │                                                         ↓
+  │                                       [ C. 交叉门控融合 (TFE-GNN 技术) ]
+  │                                       (不再是简单的拼接，而是互相过滤)
+  │                                       ┌───────────────────────────────┐
+  │                                       │ 1. Gate_t = Sigmoid(MLP(H_t)) │  <-- 时间告诉形状该看哪
+  │                                       │ 2. Gate_s = Sigmoid(MLP(H_s)) │  <-- 形状告诉时间该看哪
+  │                                       │ 3. Out_t = H_t * Gate_s       │
+  │                                       │ 4. Out_s = H_s * Gate_t       │
+  │                                       │ 5. Final = Concat(Out_t, Out_s│
+  │                                       └───────────────────────────────┘
+  │                                                         ↓
+  └──────────────────────────────────────────────> [ AN-Net 特征增强 Drop/Scale ] ──> [分类]
