@@ -26,6 +26,7 @@
 - 实现： Client $\to$ Server 记为 1，Server $\to$ Client 记为 -1。
 - 理论依据： TrafficFormer 强调流量数据的方向和顺序至关重要，因为它们定义了协议的交互逻辑。
 - 预期： 这是一个强特征，预计在所有数据集上都能带来准确率提升。
+# 第二阶段：特征融合 (Version 2.x)
 ## version 2
 - [1] IP 总长度 (IP Total Length) IP 数据包的总大小（包含 IP 头 + TCP 头 + 荷载）。代码中通过 ip_layer.len 提取，用于替代旧版的 TCP 载荷长度，能捕捉由 TCP Options 引起的头部长度微小变化。
 - [2] 有效载荷长度 (Payload Length) 应用层纯数据的大小。提取逻辑为 IP 总长度减去 IP 头部长度和 TCP 头部长度，用于帮助模型解耦“数据大小”与“协议结构”。
