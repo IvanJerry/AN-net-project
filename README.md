@@ -27,11 +27,11 @@
 - 理论依据： TrafficFormer 强调流量数据的方向和顺序至关重要，因为它们定义了协议的交互逻辑。
 - 预期： 这是一个强特征，预计在所有数据集上都能带来准确率提升。
 ## version 2
-[1] IP 总长度 (IP Total Length) IP 数据包的总大小（包含 IP 头 + TCP 头 + 荷载）。代码中通过 ip_layer.len 提取，用于替代旧版的 TCP 载荷长度，能捕捉由 TCP Options 引起的头部长度微小变化。
-[2] 有效载荷长度 (Payload Length) 应用层纯数据的大小。提取逻辑为 IP 总长度减去 IP 头部长度和 TCP 头部长度，用于帮助模型解耦“数据大小”与“协议结构”。
-[3] 到达时间间隔 (Inter-Arrival Time / IAT) 流的节奏，反映应用的突发性和自动化程度。代码中通过计算相邻数据包的时间戳差值得到 time_sequence。
-[4] 生存时间 (Time To Live / TTL) 网络路径指纹，反映不同的操作系统默认初始 TTL 值。直接从 ip_layer.ttl 提取。
-[5] 相对方向 (Relative Direction) 交互逻辑指示符，定义流量的“一来一回”节奏。提取时基于首包源 IP 进行判断：同首包 IP 为 1（Client），不同则为 2（Server）。
-[6] IP 标志位 (IP Flags) IP 协议状态（如 DF 位）。提取自 ip_layer.flags.value。
-[7] TCP 标志位 (TCP Flags) TCP 协议状态（如 SYN/ACK/PSH），标记流处于握手、传输还是断开阶段。提取自 tcp_layer.flags.value。
-[8] 匿名化协议头 (Anonymized Protocol Header) 去噪后的协议结构字节（前 60 字节），仅包含 IP+TCP 头部，丢弃 Payload。代码中将 IP 地址和端口号位置置 0 以防作弊，并将其转换为整数序列供模型学习微观协议行为（如窗口大小）。
+- [1] IP 总长度 (IP Total Length) IP 数据包的总大小（包含 IP 头 + TCP 头 + 荷载）。代码中通过 ip_layer.len 提取，用于替代旧版的 TCP 载荷长度，能捕捉由 TCP Options 引起的头部长度微小变化。
+- [2] 有效载荷长度 (Payload Length) 应用层纯数据的大小。提取逻辑为 IP 总长度减去 IP 头部长度和 TCP 头部长度，用于帮助模型解耦“数据大小”与“协议结构”。
+- [3] 到达时间间隔 (Inter-Arrival Time / IAT) 流的节奏，反映应用的突发性和自动化程度。代码中通过计算相邻数据包的时间戳差值得到 time_sequence。
+- [4] 生存时间 (Time To Live / TTL) 网络路径指纹，反映不同的操作系统默认初始 TTL 值。直接从 ip_layer.ttl 提取。
+- [5] 相对方向 (Relative Direction) 交互逻辑指示符，定义流量的“一来一回”节奏。提取时基于首包源 IP 进行判断：同首包 IP 为 1（Client），不同则为 2（Server）。
+- [6] IP 标志位 (IP Flags) IP 协议状态（如 DF 位）。提取自 ip_layer.flags.value。
+- [7] TCP 标志位 (TCP Flags) TCP 协议状态（如 SYN/ACK/PSH），标记流处于握手、传输还是断开阶段。提取自 tcp_layer.flags.value。
+- [8] 匿名化协议头 (Anonymized Protocol Header) 去噪后的协议结构字节（前 60 字节），仅包含 IP+TCP 头部，丢弃 Payload。代码中将 IP 地址和端口号位置置 0 以防作弊，并将其转换为整数序列供模型学习微观协议行为（如窗口大小）。
