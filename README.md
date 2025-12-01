@@ -36,3 +36,16 @@
 - [6] IP 标志位 (IP Flags) IP 协议状态（如 DF 位）。提取自 ip_layer.flags.value。
 - [7] TCP 标志位 (TCP Flags) TCP 协议状态（如 SYN/ACK/PSH），标记流处于握手、传输还是断开阶段。提取自 tcp_layer.flags.value。
 - [8] 匿名化协议头 (Anonymized Protocol Header) 去噪后的协议结构字节（前 60 字节），仅包含 IP+TCP 头部，丢弃 Payload。代码中将 IP 地址和端口号位置置 0 以防作弊，并将其转换为整数序列供模型学习微观协议行为（如窗口大小）。
+# 第三阶段：删减特征 (Version 3.x)
+## V3.1 方案：基于 V1 的特征精简 (Feature Selection on V1)
+核心逻辑： V1 版本包含一些可能导致过拟合或信息增益极低的特征。V3.1 的目标是验证**“去除噪声特征是否能提升模型在通用流量下的泛化能力”**。
+基准 (Base)： V1 特征集。
+删减对象：
+- TTL (Time-To-Live)： TTL 与网络拓扑跳数强相关，容易让模型学习到“路径特征”而非“应用特征”（比如模型可能学会了区分内网和外网，而不是区分 YouTube 和 Netflix）。在通用流量分类中，这是一个严重的干扰项。
+IPFlag & IPHeader (部分)： IP 头部的标志位（如 DF）通常是操作系统决定的，与应用层行为关系较弱。
+**V3.1 最终特征列表：**
+- Length (保留)： TCP 载荷长度，反映数据块大小。
+- IAT (保留)： 到达时间间隔，反映流的突发节奏。
+- TCPFlag (保留)： 握手与传输状态，反映交互阶段。
+- Payload (保留)： 原始字节序列（TCP层），这是深度学习模型捕捉微观模式的关键。
+- 移除： TTL, IPFlag。
